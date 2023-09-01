@@ -1,0 +1,1085 @@
+---
+title: "Car Price Forecast"
+author: '[...]'
+date: "2023/5/21"
+geometry: tmargin=2.3cm,bmargin=2.3cm,lmargin=2cm,rmargin=2cm
+output: 
+  pdf_document:
+    latex_engine: xelatex
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+options(warn=-1)
+```
+
+\newpage
+\tableofcontents
+\newpage
+
+# Introduction
+
+## Problem Description
+
+Geely Auto, a Chinese automobile company, aims to penetrate the US market by establishing a local manufacturing unit and producing cars to compete with American and European counterparts. To gain insight into the pricing factors specific to the American market, Geely Auto has enlisted the services of an automobile consulting company. The consulting company's objective is twofold:
+
+- Identify the significant variables that influence car prices.
+- Assess the effectiveness of these variables in describing the price of a car.
+
+To achieve these goals, the consulting firm has compiled a comprehensive dataset of various car types available in the American market, drawing from numerous market surveys.
+
+## Business Objective
+
+My objective is to develop a pricing model for cars based on various independent variables. This model will enable the management to gain a clear understanding of how the prices of cars are influenced by these independent variables. With this knowledge, the management can make informed decisions regarding the design of the cars, the business strategy, and other relevant factors to achieve specific price levels. Additionally, the model will serve as a valuable tool for the management to comprehend the pricing dynamics in a new market.
+
+## Dataset Description
+
+The dataset contains information about cars and their respective attributes. Here is a summary of the data:
+
+1. Car_ID: A unique identifier for each observation (integer).
+1. Symboling: The assigned insurance risk rating, ranging from -3 (probably pretty safe) to +3 (risky) (categorical).
+1. CarCompany: The name of the car company (categorical).
+1. Fueltype: The type of car fuel, either gas or diesel (categorical).
+1. Aspiration: The type of aspiration used in a car (categorical).
+1. Doornumber: The number of doors in a car (categorical).
+1. Carbody: The body type of the car (categorical).
+1. Drivewheel: The type of drive wheel (categorical).
+1. Enginelocation: The location of the car engine (categorical).
+1. Wheelbase: The wheelbase of the car (numeric).
+1. Carlength: The length of the car (numeric).
+1. Carwidth: The width of the car (numeric).
+1. Carheight: The height of the car (numeric).
+1. Curbweight: The weight of the car without occupants or baggage (numeric).
+1. Enginetype: The type of engine (categorical).
+1. Cylindernumber: The number of cylinders in the car (categorical).
+1. Enginesize: The size of the car's engine (numeric).
+1. Fuelsystem: The fuel system of the car (categorical).
+1. Boreratio: The bore ratio of the car (numeric).
+1. Stroke: The stroke or volume inside the engine (numeric).
+1. Compressionratio: The compression ratio of the car (numeric).
+1. Horsepower: The horsepower of the car (numeric).
+1. Peakrpm: The peak revolutions per minute (rpm) of the car (numeric).
+1. Citympg: The mileage in miles per gallon (mpg) in city driving conditions (numeric).
+1. Highwaympg: The mileage in mpg on the highway (numeric).
+1. Price (Dependent variable): The price of the car (numeric).
+
+These attributes provide information about various aspects of the cars, such as their specifications, dimensions, performance, and pricing.
+
+## Step 1: Data Reading and Understanding
+
+To begin, we will follow these steps:
+
+1. Import the basic library to work with the data.
+1. Read the dataset and load it into a pandas DataFrame.
+1. Gain an understanding of the data's structure and format.
+
+By performing these initial steps, we can proceed with further analysis and exploration of the dataset.
+
+```{r cars}
+library(tidyverse)
+
+# Reading the data
+cars <- read.csv('CarPrice_Assignment.csv')
+
+# Displaying the first few rows of the data
+head(cars)
+```
+
+```{r}
+print(dim(cars))
+summary(cars)
+str(cars)
+```
+
+
+This is the basic information of the data.
+
+
+## Step 2 : Data Cleaning and Preparation
+
+
+
+```{r}
+# Splitting company name from CarName column
+cars <- cars %>%
+  mutate(CompanyName = str_split_fixed(CarName, " ", 2)[,1])
+
+cars <- subset(cars, select = -CarName)
+
+print(head(cars))
+
+print(unique(cars$CompanyName))
+```
+
+Correcting Invalid Values:
+
+There are some spelling errors in the "CompanyName" column that need to be fixed. Here are the corrections:
+
+- maxda should be corrected to mazda.
+- Nissan should be corrected to nissan.
+- porsche should be corrected to porsche.
+- toyota should be corrected to toyota.
+- vokswagen should be corrected to volkswagen or vw.
+
+Please note that "volkswagen" and "vw" both refer to the same company.
+
+```{r}
+# Converting CompanyName to lowercase
+cars <- mutate(cars, CompanyName = tolower(CompanyName))
+
+# Fixing misspelled names
+replace_name <- function(a, b) {
+  cars$CompanyName[cars$CompanyName == a] <- b
+}
+
+replace_name('maxda', 'mazda')
+replace_name('porcshce', 'porsche')
+replace_name('toyouta', 'toyota')
+replace_name('vokswagen', 'volkswagen')
+replace_name('vw', 'volkswagen')
+
+
+
+# Checking for duplicates
+print(cars[duplicated(cars), ])
+```
+
+# Visualization
+
+## Visualising dependent variable
+
+```{r}
+library(ggplot2)
+
+# Car Price Distribution Plot
+p1 <- ggplot(cars, aes(x = price)) +
+  geom_histogram(aes(y = ..density..), colour = "black", fill = "white") +
+  geom_density(alpha = .2, fill = "#FF6666") +
+  ggtitle("Car Price Distribution Plot") +
+  theme_minimal()
+print(p1)
+```
+
+```{r}
+print(quantile(cars$price, c(0.25, 0.50, 0.75, 0.85, 0.90, 1)))
+```
+
+
+```{r}
+# Car Price Spread
+p2 <- ggplot(cars, aes(y = price)) +
+  geom_boxplot() +
+  ggtitle("Car Price Spread") +
+  theme_minimal()
+print(p2)
+```
+
+The distribution of car prices in the dataset appears to be right-skewed, indicating that a majority of the prices are lower (below \$15,000). There is a noticeable disparity between the mean and median values of the price distribution. Furthermore, the data points are widely dispersed from the mean, suggesting a significant variance in car prices. Specifically, approximately 85% of the prices fall below \$18,500, while the remaining 15% range between $18,500 and $45,400.
+
+
+## Visualising Categorical data
+
+For Categorical Data:
+- CompanyName
+- Symboling
+- fueltype
+- enginetype
+- carbody
+- doornumber
+- enginelocation
+- fuelsystem
+- cylindernumber
+- aspiration
+- drivewheel
+
+
+```{r}
+# Companies Histogram
+p3 <- ggplot(cars, aes(x = CompanyName, fill = CompanyName)) +
+  geom_bar() +
+  xlab("Car company") + ylab("Frequency of company") +
+  ggtitle("Companies Histogram") +
+  theme_minimal() +
+  theme(axis.text.x = element_blank(), axis.ticks.x = element_blank())
+print(p3)
+```
+
+
+```{r}
+# Fuel Type Histogram
+p4 <- ggplot(cars, aes(x = fueltype, fill = fueltype)) +
+  geom_bar() +
+  xlab("Fuel Type") + ylab("Frequency of fuel type") +
+  ggtitle("Fuel Type Histogram") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_fill_brewer(palette="Set3")
+print(p4)
+```
+
+
+```{r}
+# Car Type Histogram
+p5 <- ggplot(cars, aes(x = carbody, fill = carbody)) +
+  geom_bar() +
+  xlab("Car Type") + ylab("Frequency of Car type") +
+  ggtitle("Car Type Histogram") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_fill_brewer(palette="Set3")
+
+print(p5)
+```
+
+1. Toyota appears to be the most popular car company among the available options.
+1. There is a higher number of cars fueled by gas compared to diesel.
+1. Sedan is the most preferred car type.
+
+```{r}
+# Symboling Histogram
+p1 <- ggplot(cars, aes(x = as.factor(symboling), fill = as.factor(symboling))) +
+  geom_bar() +
+  ggtitle("Symboling Histogram") +
+  theme_minimal() +
+  scale_fill_brewer(palette="Dark2") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+print(p1)
+
+# Symboling vs Price
+p2 <- ggplot(cars, aes(x = as.factor(symboling), y = price, fill = as.factor(symboling))) +
+  geom_boxplot() +
+  ggtitle("Symboling vs Price") +
+  theme_minimal() +
+  scale_fill_brewer(palette="Dark2")
+
+print(p2)
+```
+
+Upon analyzing the data, it appears that cars with symboling values of 0 and 1 have a higher number of rows, indicating that they are the most commonly sold cars in the dataset.
+
+Interestingly, cars with a symboling value of -1, which indicates a favorable insurance risk rating, tend to have higher prices. This observation aligns with expectations, as a lower risk rating usually corresponds to higher prices.
+
+Surprisingly, cars with a symboling value of 3 exhibit a price range similar to cars with a symboling value of -2. This suggests that despite the significant difference in risk ratings, these cars have comparable pricing. Notably, there is a price dip observed for cars with a symboling value of 1, indicating a deviation from the expected pricing pattern based on risk ratings.
+
+```{r}
+# Engine Type Histogram
+p3 <- ggplot(cars, aes(x = enginetype, fill = enginetype)) +
+  geom_bar() +
+  ggtitle("Engine Type Histogram") +
+  theme_minimal() +
+  scale_fill_brewer(palette="Blues")
+print(p3)
+# Engine Type vs Price
+p4 <- ggplot(cars, aes(x = enginetype, y = price, fill = enginetype)) +
+  geom_boxplot() +
+  ggtitle("Engine Type vs Price") +
+  theme_minimal() +
+  scale_fill_brewer(palette="PuBuGn")
+
+print(p4)
+
+# Engine Type vs Average Price
+df <- cars %>%
+  group_by(enginetype) %>%
+  summarise(avg_price = mean(price, na.rm = TRUE)) %>%
+  arrange(desc(avg_price))
+
+p5 <- ggplot(df, aes(x = enginetype, y = avg_price, fill = enginetype)) +
+  geom_bar(stat = "identity") +
+  ggtitle("Engine Type vs Average Price") +
+  theme_minimal() +
+  scale_fill_brewer(palette="PuBuGn")
+
+print(p5)
+```
+
+Based on the data provided, it appears that the ohc (Overhead Camshaft) engine type is the most preferred among the car models. On the other hand, cars with ohcv (Overhead Camshaft with Variable Valve Timing) engine type have the highest price range. It is worth noting that the dohcv (Double Overhead Camshaft with Variable Valve Timing) engine type has only one entry in the dataset. Furthermore, cars with ohc (Overhead Camshaft) and ohcf (Overhead Camshaft with Carburetor and Variable Valve Timing) engine types tend to have a lower price range compared to the others.
+
+
+```{r}
+library(dplyr)
+
+# Company Name vs Average Price
+df <- cars %>%
+  group_by(CompanyName) %>%
+  summarise(avg_price = mean(price, na.rm = TRUE)) %>%
+  arrange(desc(avg_price))
+
+p1 <- ggplot(df, aes(x = CompanyName, y = avg_price, fill = CompanyName)) +
+  geom_bar(stat = "identity") +
+  ggtitle("Company Name vs Average Price") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+print(p1)
+
+# Fuel Type vs Average Price
+df <- cars %>%
+  group_by(fueltype) %>%
+  summarise(avg_price = mean(price, na.rm = TRUE)) %>%
+  arrange(desc(avg_price))
+
+p2 <- ggplot(df, aes(x = fueltype, y = avg_price, fill = fueltype)) +
+  geom_bar(stat = "identity") +
+  ggtitle("Fuel Type vs Average Price") +
+  theme_minimal() +
+  scale_fill_brewer(palette="Dark2")
+
+print(p2)
+
+# Car Type vs Average Price
+df <- cars %>%
+  group_by(carbody) %>%
+  summarise(avg_price = mean(price, na.rm = TRUE)) %>%
+  arrange(desc(avg_price))
+
+p3 <- ggplot(df, aes(x = carbody, y = avg_price, fill = carbody)) +
+  geom_bar(stat = "identity") +
+  ggtitle("Car Type vs Average Price") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_fill_brewer(palette="Dark2")
+
+print(p3)
+```
+
+
+Based on the data analysis, it appears that Jaguar and Buick are the car companies with the highest average prices. Additionally, cars powered by diesel fuel tend to have higher average prices compared to those running on gas. Furthermore, the car body types classified as hardtop and convertible generally exhibit higher average prices.
+
+```{r}
+# Door Number Histogram
+p4 <- ggplot(cars, aes(x = doornumber, fill = doornumber)) +
+  geom_bar() +
+  ggtitle("Door Number Histogram") +
+  theme_minimal() +
+  scale_fill_brewer(palette="Dark2")
+
+print(p4)
+
+# Door Number vs Price
+p5 <- ggplot(cars, aes(x = doornumber, y = price, fill = doornumber)) +
+  geom_boxplot() +
+  ggtitle("Door Number vs Price") +
+  theme_minimal() +
+  scale_fill_brewer(palette="Dark2")
+
+print(p5)
+
+# Aspiration Histogram
+p6 <- ggplot(cars, aes(x = aspiration, fill = aspiration)) +
+  geom_bar() +
+  ggtitle("Aspiration Histogram") +
+  theme_minimal() +
+  scale_fill_brewer(palette="Dark2")
+
+print(p6)
+
+# Aspiration vs Price
+p7 <- ggplot(cars, aes(x = aspiration, y = price, fill = aspiration)) +
+  geom_boxplot() +
+  ggtitle("Aspiration vs Price") +
+  theme_minimal() +
+  scale_fill_brewer(palette="Dark2")
+
+print(p7)
+
+```
+
+Based on the analysis, it appears that the "doornumber" variable does not have a significant impact on the price of the cars. There is minimal difference observed between the different categories of this variable.
+
+Furthermore, it seems that cars with a turbo aspiration have a higher price range compared to those with a standard aspiration. However, it should be noted that there are some outliers with unusually high values outside the typical range.
+
+```{r}
+# Create a function for plotting histograms and boxplots
+plot_count <- function(x, fig) {
+  p1 <- ggplot(cars, aes_string(x = x, fill = x)) +
+    geom_bar() +
+    ggtitle(paste(x, "Histogram")) +
+    theme_minimal() +
+    scale_fill_brewer(palette="Dark2")
+  
+  print(p1)
+  
+  p2 <- ggplot(cars, aes_string(x = x, y = "price", fill = x)) +
+    geom_boxplot() +
+    ggtitle(paste(x, "vs Price")) +
+    theme_minimal() +
+    scale_fill_brewer(palette="Dark2")
+  
+  print(p2)
+}
+
+# Plot countplots and boxplots
+plot_count('enginelocation', 1)
+plot_count('cylindernumber', 3)
+plot_count('fuelsystem', 5)
+plot_count('drivewheel', 7)
+```
+
+The dataset provides information on various car attributes, but there are some observations to note:
+
+1. Engine Location: There are very few data points available for the engine location categories. Therefore, it is challenging to draw meaningful inferences from this attribute.
+
+1. Cylinder Number: The most common number of cylinders found in cars is four, followed by six and five. However, cars with eight cylinders tend to have the highest price range.
+
+1. Fuel System: The majority of cars in the dataset have the mpfi and 2bbl fuel systems. Among them, cars with the mpfi and idi fuel systems tend to have the highest price range. It is important to note that there are limited data points available for other fuel system categories, making it difficult to derive significant insights from those categories.
+
+1. Drivewheel: There is a significant difference observed in the drivewheel category. Most high-priced cars seem to prefer the rear-wheel drive (rwd) drivewheel configuration.
+
+These observations provide some insights into the relationships between certain car attributes and their pricing, but further analysis and consideration of other variables are necessary for a more comprehensive understanding.
+
+## Visualising numerical data
+
+```{r}
+# Create a function for scatter plots
+scatter <- function(x, fig) {
+  p <- ggplot(cars, aes_string(x = x, y = "price")) +
+    geom_point() +
+    ggtitle(paste(x, "vs Price")) +
+    ylab("Price") +
+    xlab(x) +
+    theme_minimal()
+  
+  print(p)
+}
+
+# Plot scatter plots
+scatter('carlength', 1)
+scatter('carwidth', 2)
+scatter('carheight', 3)
+scatter('curbweight', 4)
+
+```
+
+Based on the data analysis, it appears that carwidth, carlength, and curbweight exhibit a positive correlation with price. This implies that as these variables increase, the price of the car tends to increase as well. On the other hand, carheight does not show a significant trend or correlation with price, suggesting that changes in carheight do not strongly influence the pricing of the car.
+
+
+```{r}
+library(GGally)
+
+# Create a function for pair plots
+pp <- function(x,y,z) {
+  p <- ggpairs(cars, columns = c(x,y,z, "price"),
+               lower = list(continuous = wrap("points", alpha = 0.5, size = 1, color = "blue")))
+  print(p)
+}
+
+# Plot pair plots
+pp('enginesize', 'boreratio', 'stroke')
+pp('compressionratio', 'horsepower', 'peakrpm')
+pp('wheelbase', 'citympg', 'highwaympg')
+```
+
+Based on the analysis of the data, it appears that certain attributes show a significant correlation with the price of the car:
+
+Engine Size, Bore Ratio, Horsepower, and Wheelbase: These attributes exhibit a notable positive correlation with the price of the car. As these values increase, the price of the car tends to increase as well.
+
+City MPG and Highway MPG: These attributes display a significant negative correlation with the price of the car. Higher city and highway mileage (measured in miles per gallon) are associated with lower car prices.
+
+It is important to note that correlation does not imply causation, and further analysis is required to understand the precise relationships between these attributes and car prices.
+
+
+```{r}
+# Correlation
+cor(cars$carlength, cars$carwidth)
+```
+
+# Feature Engineering
+
+```{r}
+# Fuel economy
+cars$fueleconomy <- (0.55 * cars$citympg) + (0.45 * cars$highwaympg)
+
+# Binning the Car Companies based on avg prices of each Company
+cars$price <- as.integer(cars$price)
+temp <- cars
+table <- temp %>%
+  group_by(CompanyName) %>%
+  summarise(mean_price = mean(price, na.rm = TRUE))
+
+temp <- merge(temp, table, by = "CompanyName")
+bins <- c(0,10000,20000,40000)
+cars_bin <- c('Budget','Medium','Highend')
+cars$carsrange <- cut(temp$mean_price, breaks = bins, labels = cars_bin, include.lowest = TRUE)
+
+head(cars)
+```
+
+- Fuel Economy: A new feature called "fueleconomy" is created by combining the city and highway mileage of the cars. The fuel economy is calculated using a weighted average formula, where 55% weight is given to city mileage (cars$citympg) and 45% weight is given to highway mileage (cars$highwaympg).
+
+- Binning Car Companies: The car companies are grouped based on the average prices of their cars. The "price" column is converted to integer format. The dataset "temp" is created as a copy of the original dataset "cars". Then, a table is generated by grouping "temp" by "CompanyName" and calculating the mean price for each company. The resulting table is merged with "temp" based on the "CompanyName" column. Bins are defined as 0-10,000, 10,000-20,000, and above 20,000. The labels "Budget," "Medium," and "Highend" are assigned to the corresponding price ranges. The new column "carsrange" is created to store the bin labels.
+
+These feature engineering steps aim to enhance the dataset by incorporating additional information such as fuel economy and categorizing car companies based on their average prices. These engineered features can provide valuable insights and potentially improve the performance of predictive models or analysis conducted on the dataset.
+
+# Bivariate Analysis
+
+```{r}
+# Scatter plot with hue
+p <- ggplot(cars, aes(x = fueleconomy, y = price, color = drivewheel)) +
+  geom_point() +
+  labs(title = "Fuel economy vs Price",
+       x = "Fuel Economy",
+       y = "Price") +
+  theme_minimal()
+
+print(p)
+```
+
+Based on the feature engineering performed, the newly created feature "fueleconomy" shows a clear and significant negative correlation with the price of the cars. This implies that as the fuel economy (measured by the combined city and highway mileage) improves, the price of the car tends to decrease. This relationship between fuel economy and price can provide valuable insights for analyzing the pricing dynamics of the cars in the dataset.
+
+```{r}
+library(reshape2)
+# Group by multiple columns and bar plot
+df <- cars %>%
+  group_by(fuelsystem, drivewheel, carsrange) %>%
+  summarise(mean_price = mean(price, na.rm = TRUE)) %>%
+  ungroup() %>%
+  spread(key = carsrange, value = mean_price, fill = 0)
+
+df_long <- melt(df, id.vars = c("fuelsystem", "drivewheel"))
+p <- ggplot(df_long, aes(x = interaction(fuelsystem, drivewheel), y = value, fill = variable)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "Car Range vs Average Price",
+       x = "Car Range",
+       y = "Average Price") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+print(p)
+```
+
+Cars in the higher price range tend to have a preference for rear-wheel drive (rwd) as the drivewheel type. Additionally, they are more likely to feature indirect injection (idi) or multi-point fuel injection (mpfi) as the fuel system.
+
+
+*After conducting a visual analysis, the following variables have been identified as significant*:
+
+- Car Range
+- Engine Type
+- Fuel Type
+- Car Body
+- Aspiration
+- Cylinder Number
+- Drivewheel
+- Curbweight
+- Car Length
+- Car Width
+- Engine Size
+- Boreratio
+- Horsepower
+- Wheelbase
+- Fuel Economy
+
+These variables have shown meaningful patterns, relationships, or variations that are visually apparent and may have an impact on the pricing or other aspects of the cars. Further analysis can be conducted on these variables to gain deeper insights and understand their influence on the target variable or other relevant factors in the dataset.
+
+
+```{r}
+# Subset of cars dataframe
+cars_lr <- cars[c('price', 'fueltype', 'aspiration','carbody', 'drivewheel','wheelbase',
+                  'curbweight', 'enginetype', 'cylindernumber', 'enginesize', 'boreratio','horsepower', 
+                    'fueleconomy', 'carlength','carwidth', 'carsrange')]
+```
+
+
+# Encoding
+
+## Create Dummy Variable
+
+Next, to facilitate regression, we create dummy variables for the categorical variables
+
+
+```{r}
+colnames(cars)# Defining the function to create dummy variables
+# Defining the function to create dummy variables
+dummies <- function(x, df) {
+  temp <- model.matrix(~0 + df[[x]])
+  temp <- temp[, -1] # drop the first column to avoid dummy variable trap
+  names(temp) <- paste(x, names(temp), sep = "_")
+  df <- cbind(df, temp)
+  df[[x]] <- NULL
+  return(df)
+}
+
+# Applying the function to the cars_lr
+cars_lr <- dummies('fueltype', cars_lr)
+cars_lr <- dummies('aspiration', cars_lr)
+cars_lr <- dummies('carbody', cars_lr)
+cars_lr <- dummies('drivewheel', cars_lr)
+cars_lr <- dummies('enginetype', cars_lr)
+cars_lr <- dummies('cylindernumber', cars_lr)
+cars_lr <- dummies('carsrange', cars_lr)
+
+# Checking the first few rows and the dimensions of the dataframe
+head(cars_lr)
+dim(cars_lr)
+
+```
+
+# Train-Test Split and feature scaling
+
+```{r}
+library(caret)
+library(corrr)
+
+# Setting the seed to make the partition reproducible
+set.seed(100)
+
+temp_positions <- which(names(cars_lr) == "temp")
+names(cars_lr)[temp_positions[1]] <- "gas"
+names(cars_lr)[temp_positions[2]] <- "turbo"
+
+# Splitting the data into training set and test set
+trainIndex <- createDataPartition(cars_lr$price, p = .7, list = FALSE, times = 1)
+df_train <- cars_lr[ trainIndex,]
+df_test  <- cars_lr[-trainIndex,]
+
+# Rename the columns of the dataframe
+names(df_train) <- make.names(names(df_train))
+names(df_test) <- make.names(names(df_test))
+
+# Scaling the numeric variables
+num_vars <- c('wheelbase', 'curbweight', 'enginesize', 'boreratio', 'horsepower','fueleconomy','carlength','carwidth','price')
+preProc <- preProcess(df_train[,num_vars], method = c("scale"), range = c(0, 1))
+df_train[,num_vars] <- predict(preProc, df_train[,num_vars])
+
+# Checking the first few rows and the summary of the training set
+head(df_train)
+summary(df_train)
+
+# Correlation using heatmap
+corr_df <- df_train %>% correlate()
+corr_df %>% rplot() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+```
+
+There are perfectly correlated features that delete to prevent perfect multicollinearity.
+
+```{r}
+df_train <- df_train[, -which(names(df_train) == "df..x..two")]
+df_test <- df_test[, -which(names(df_test) == "df..x..two")]
+rownames(df_train) <- NULL
+```
+
+```{r}
+# Dividing data into X and y variables
+y_train <- df_train$price
+X_train <- df_train[, !names(df_train) %in% 'price']
+```
+
+# Regression model Building
+
+## Feature Selection
+
+### Validation Set Approach
+
+Performance on unknown data is an important metric for selecting a model, and we do this here using the Validation Set Approach.
+I started by using regsubsets to find the best model with the number of different predictors. Then find the model with the best generalization ability among these models.
+
+```{r}
+#### Load necessary libraries
+library(ISLR)
+library(leaps)
+library(glmnet)
+
+nvmax <- ncol(df_train)
+
+# Split data into training and validation set
+set.seed(0)
+
+# Determine the number of rows to include in the training set (80% of the total)
+train_size <- floor(0.8 * nrow(df_train))
+
+train <- sample(seq_len(nrow(df_train)), size = train_size)
+test <- (-train)
+
+# Fit a model on the training set, and evaluate its MSE on the test set
+regfit.best <- regsubsets(price~., data = df_train[train, ], nvmax=nvmax)
+test.df <- df_train[test, ]
+
+# Function to get predictions
+get.regsubsets.predictions <- function(object, newdata, id, ...){
+  form <- as.formula(object$call[[2]])
+  mat <- model.matrix(form, newdata)
+  coefi <- coef(object, id = id)
+  xvars <- names(coefi)
+  mat[,xvars] %*% coefi
+}
+
+# Get the best model's predictions
+val.errors <- rep(NA, (nvmax-1))
+for(i in 1:(nvmax-1)){
+  pred <- get.regsubsets.predictions(regfit.best, test.df, i)
+  val.errors[i] <- mean((df_train$price[test]-pred)^2)
+}
+
+# Find the model with the lowest validation set error
+print(which.min(val.errors))
+```
+
+```{r}
+# Plot MSE against number of predictors
+plot(val.errors, type = "b", xlab = "Number of Predictors", ylab = "Validation Set MSE")
+points(which.min(val.errors), val.errors[which.min(val.errors)], col = "red", cex = 2, pch = 20)
+
+text(which.min(val.errors), val.errors[which.min(val.errors)], labels = paste("NumVar:", which.min(val.errors), "MSE:", round(val.errors[which.min(val.errors)], 2)), pos = 2)
+
+```
+
+We can find that the regression model with 9 features performs best on the verification set
+
+
+
+But the Validation Set Approach has drawbacks:
+
+Low data utilization: The Validation Set Approach uses only a portion of the data as the validation set, while the rest of the data is used to train the model. This can lead to inaccurate estimates of model performance on validation sets, especially when the data sets are small.
+
+There may be large variance: Because the way the Validation Set is divided may lead to different model performance evaluation results, the evaluation results of the Validation Set Approach may have large variance.
+
+
+### Cross-Validation
+
+Therefore, using cross validation may be a better approach
+
+
+```{r}
+library(leaps)
+library(boot)
+set.seed(0)
+# Fit the model
+regfit.best <- regsubsets(price~., data = df_train, nvmax = nvmax)
+
+# Create a matrix to store the results
+cv.errors <- matrix(NA, nvmax-1, 2)
+
+# Extract the column names of the data
+colnames <- colnames(df_train[,names(df_train) != "price"])
+
+for(i in 1:(nvmax-1)){
+  # Get the best model of size i
+  coefi <- coef(regfit.best, id = i)
+  
+  # Get the names of the predictors for the best model of size i
+  predictors <- names(coefi)[2:length(coefi)]
+  
+  # Fit the GLM model using these predictors
+  glm.fit <- glm(price ~ ., data = df_train[, c(predictors, "price")])
+  
+  # Perform k-fold cross-validation
+  cv.errors[i,] <- cv.glm(df_train, glm.fit, K = 5)$delta
+}
+
+# The MSE for the best models of each size
+cv.errors
+
+
+```
+ 
+
+
+```{r}
+# Plot the raw CV errors
+plot(1:(nvmax-1), cv.errors[,1], xlab = "Number of Predictors", ylab = "CV Error", type = "b", pch = 19, col = "blue", ylim=c(0.16,0.46))
+
+# Add points for the adjusted CV errors
+points(1:(nvmax-1), cv.errors[,2], col = "red", pch = 19, type = "b")
+
+# Find the minimum CV error and its corresponding index
+min_error <- min(cv.errors[, 2])
+min_index <- which.min(cv.errors[, 2])
+
+# Add label for the minimum point
+text(min_index, min_error, labels = paste("#Predictors:", min_index,"Min Error:", round(min_error,2)), pos = 2)
+
+# Add a legend
+# Set the coordinates for the legend (outside the plot area)
+legend_x <- "topright"
+legend_y <- max(cv.errors) + 0.02
+
+# Add a legend outside the plot
+legend(legend_x, legend = c("Raw CV Error", "Adjusted CV Error"), col = c("blue", "red"), pch = 19, inset = c(0, 0), xpd = TRUE, yjust = 0, y.intersp = 1.5, title = "Legend")
+
+```
+
+In this diagram we can see how the MSE error estimate from cross-validation varies with the number of Predictor counts
+
+
+We pay more attention to the generalization ability of the model, so we prefer to use Validation Set Approach and Cross-Validation to select the model. In addition, we wish we could get more robust regression results, but our sample size is small (n=205). As a rule of thumb, regression results are generally reliable when the sample size is 15 or more times the number of variables, so only use models with less than 14 Predictor numbers. So let's choose the model with 11 Predictor. The model has performed well in Validation Set Approach and Cross-Validation, and has shown reliable performance in Cp, BIC, and adjusted R^2.
+
+
+```{r}
+# Get the coefficients of the best model of size 9
+coefi <- coef(regfit.best, id = 11)
+
+# Get the names of the predictors for the best model of size 9
+predictors <- names(coefi)[2:length(coefi)]
+
+# Fit the LM model using these predictors
+lm.fit <- lm(price ~ ., data = df_train[, c(predictors, "price")])
+
+# Print the summary of the model
+summary(lm.fit)
+```
+
+# Diagnsitics Test
+
+Let's diagnose the regression:
+
+```{r}
+plot(lm.fit)
+```
+
+There are several issues with the model that can be observed:
+
+- Residuals vs Fitted: This plot examines whether the residuals exhibit non-linear patterns, indicating a potential non-linear relationship between predictor variables and the outcome variable. Such patterns suggest that the linear hypothesis is not satisfied, and there may be non-linear components present in the residuals.
+
+- Normal Q-Q: This plot assesses the normality of the residuals. Ideally, the residuals should approximately follow a straight dashed line, indicating a normal distribution.
+
+- Scale-Location (Spread-Location): This plot investigates whether the residuals are equally spread across the ranges of the predictor variables. It helps verify the assumption of equal variance (homoscedasticity). If the spread of residuals varies across predictor ranges, it may imply heteroscedasticity or the failure to capture a non-linear relationship.
+
+- Residuals vs Leverage: This plot helps identify influential cases (i.e., subjects) within the data. Not all outliers have a significant impact on linear regression analysis. While some extreme values may not substantially alter the results if included or excluded from the analysis, as they align with the overall trend, others can greatly influence the regression line, even if they fall within a reasonable value range. These influential cases deviate from the majority trend and may warrant special attention in the analysis.
+
+
+
+
+In addition, we also need to test whether the model has multicollinearity. To assess the presence of multicollinearity, Variance Inflation Factor (VIF) values were calculated for each predictor. The VIF measures the correlation between a predictor and the other predictors in the model. 
+
+The Variance Inflation Factor (VIF) measures the inflation of the variance of the estimated regression coefficients due to multicollinearity. The formula for calculating the VIF for a predictor variable is as follows:
+
+$VIF = \frac{1}{1 - R^2}$
+
+Where:
+
+$R^2$ is the coefficient of determination of a regression model in which the predictor variable is regressed against all other predictor variables.
+
+According to James et al. (2013), a VIF value less than 5 indicates a low correlation, a value between 5 and 10 indicates a moderate correlation, and VIF values larger than 10 suggest a high correlation that is not tolerable.
+
+```{r}
+library(car)
+vif(lm.fit)
+```
+
+Based on the VIF values,  it can be observed that most predictors exhibit a low to moderate correlation with other predictors. It can be observed that most predictors exhibit a low to moderate correlation with other predictors. the variable "enginesize" shows a moderate correlation with other predictors with a VIF value of 7.33. The variable "Enginesize" shows a moderate correlation with other predictors with a vif value of 7.33. So we can say that there is no obvious multicollinearity problem in the model.
+ 
+# Remedial measures
+
+## Deal with heteroscedasticity
+
+Noting heteroscedasticity, we use Box-Cox transformation to process the data.
+
+```{r}
+library(MASS)
+# Use Box-Cox transformation to choose parameter
+boxcox_results <- boxcox(lm.fit)
+lambda <- boxcox_results$x[which.max(boxcox_results$y)]
+
+# Print the chosen lambda parameter
+print(lambda)
+
+```
+
+So we use the $\lambda$ that makes log-likelihood maximum, which is $\lambda = 0.1414141$
+
+Regression again:
+```{r}
+# Fit a new LM model using the transformed response variable and predictors
+lm.fit_transformed <- lm((price ^ lambda - 1) / lambda ~ ., data = df_train[, c(predictors, "price")])
+
+# Print the final regression results
+summary(lm.fit_transformed)
+```
+
+```{r}
+plot(lm.fit_transformed)
+```
+
+After applying the Box-Cox transformation, we were able to address two issues: the presence of non-linear patterns in the residuals and heteroscedasticity.  The plots for Residuals vs Fitted, Normal Q-Q, and Scale-Location now indicate a good fit to the regression hypothesis.   However, we have identified a remaining concern related to a high leverage point.  Despite the improvements in the other aspects, this particular data point seems to have a significant impact on the regression line.  Its influence could potentially distort the results if it is included in the analysis.  Therefore, it is important to carefully consider the implications of this high leverage point and determine whether it should be included or excluded from the analysis, based on its alignment with the overall trend and the desired outcome of the regression.
+
+## Deal with high leverage points
+
+Calculation of Cook's Distance:
+Cook's distance measures the influence of each observation on the regression model. It is calculated as the scaled change in predicted values when a particular observation is omitted from the model. Mathematically, Cook's distance for the i-th observation can be expressed as:
+
+$$D_i=\frac{\sum_{j=1}^n(y_j-\hat{y}_{j(i)})^2}{p\cdot MSE}$$
+
+where $y_j$ is the observed response value,$\hat{y}_{j(i)}$is the predicted value when the i-th observation is omitted, p is the number of predictors in the model, and MSE is the mean squared error.
+
+Determining High Leverage Points:
+To identify high leverage points, Cook's distance is compared to a threshold value. The threshold is often chosen as $\frac{4}{n-p-1}$, where n is the sample size and p is the number of predictors. If Cook's distance for an observation exceeds this threshold, it is considered a high leverage point.
+
+```{r}
+# Calculate the studized residuals and Cook's distance
+studres <- rstudent(lm.fit_transformed)
+cooksd <- cooks.distance(lm.fit_transformed)
+
+# Combine student residuals and Cook's distance
+influential_points <- which(cooksd > 4 / (nrow(df_train) - length(lm.fit_transformed$model) - 1) & abs(studres) > 2)
+
+print(influential_points)
+
+```
+
+We were surprised to find that there was no sample with index 39 in the prompt. Let's examine what's different about this sample point
+
+```{r}
+df_train[df_train$df..x..twelve == 1,c(predictors, "price")]
+```
+
+It turns out that this sample is the only df.. x.. twelve is a sample of one, which is why it has a very, very high leverage. In the case of limited data, we keep it.
+
+
+The Cook distance was only two points. Since we have no prior knowledge, we delete them again to fit the regression:
+
+```{r}
+# Fit a new LM model using the transformed response variable and predictors
+lm.fit_transformed <- lm((price ^ lambda - 1) / lambda ~ ., data = df_train[-c(influential_points), c(predictors, "price")])
+
+# Print the final regression results
+summary(lm.fit_transformed)
+
+plot(lm.fit_transformed)
+```
+
+It looks like the results are all very consistent with the regression hypothesis. We did well.
+
+# t-Test and F-test
+
+Look at the final model:
+```{r}
+summary(lm.fit_transformed)
+```
+
+The coefficients in the analysis indicate the estimated effect of each predictor variable on the dependent variable. The estimated coefficients, their standard errors, t-values, and corresponding p-values are provided in the table. The intercept term, represented as (Intercept), is estimated to be -4.54010 with a standard error of 0.76392. The negative sign suggests that when all predictor variables are zero, there is a negative offset in the dependent variable.
+
+Among the predictor variables, enginesize, boreratio, horsepower, carwidth, df.. x.. rwd, df.. x.. ohcf, df.. x.. ohcv, df.. x.. rotor, df.. x.. twelve, df.. x.. Medium, and df.. x.. Highend are found to have significant effects on the dependent variable.
+
+Enginesize has a positive coefficient estimate of 0.29379 (std. error = 0.04170), indicating that an increase in enginesize leads to a higher value of the dependent variable.
+
+Boreratio, on the other hand, has a negative coefficient estimate of -0.07327 (std. error = 0.02678). This suggests that as boreratio increases, the value of the dependent variable decreases.
+
+Horsepower has a positive coefficient estimate of 0.18658 (std. error = 0.03163), implying that an increase in horsepower is associated with a higher value of the dependent variable.
+
+Carwidth also has a positive coefficient estimate of 0.13639 (std. error = 0.02641), indicating that wider cars tend to have higher values of the dependent variable.
+
+The dummy variables, df.. x.. rwd, df.. x.. ohcf, df.. x.. ohcv, df.. x.. rotor, df.. x.. twelve, df.. x.. Medium, and df.. x.. Highend, represent different categories or levels within their respective variables. Each of these variables has a coefficient estimate indicating the difference in the dependent variable compared to the reference category. The positive coefficients (df.. x.. Medium, df.. x.. Highend) suggest that being in these categories is associated with higher values of the dependent variable, while the negative coefficients (df.. x.. ohcv, df.. x.. twelve) indicate lower values compared to the reference category.
+
+The analysis also provides information on the significance of the coefficients. The significance is determined based on the t-values and their corresponding p-values. Significance is denoted using asterisks, with more asterisks indicating higher significance. For instance, "" represents high significance (p-value < 0.001), "" represents moderate significance (p-value < 0.01), and "" represents lower significance (p-value < 0.05). In this analysis, several predictors have high significance, including enginesize, boreratio, horsepower, carwidth, df.. x.. rwd, df.. x.. ohcf, df.. x.. ohcv, and df.. x.. twelve.
+
+The regression model's performance is assessed using multiple measures. The residual standard error (0.1725) indicates the average magnitude of the residuals, which represents the unexplained variation in the dependent variable after accounting for the predictor variables. A smaller residual standard error suggests a better fit of the model to the data.
+
+The multiple R-squared value is 0.9101, indicating that approximately 91.01% of the variation in the dependent variable can be explained by the predictor variables included in the model. This suggests a strong overall relationship between the predictors and the dependent variable.
+
+The adjusted R-squared value is 0.9025, which takes into account the number of predictors and adjusts the R-squared value accordingly. It penalizes the inclusion of unnecessary predictors and provides a more conservative estimate of the model's explanatory power. The adjusted R-squared is slightly lower than the multiple R-squared, suggesting that the included predictors are relevant.
+
+The F-statistic (120.5) with its associated p-value (< 2.2e-16) tests the overall significance of the model. In this case, the extremely low p-value suggests that the overall model is statistically significant, meaning that at least one of the predictor variables has a significant effect on the dependent variable.
+
+In summary, the regression analysis indicates that the selected predictor variables collectively have a strong relationship with the dependent variable. Enginesize, horsepower, carwidth, and the included dummy variables (df.. x.. rwd, df.. x.. ohcf, df.. x.. ohcv, df.. x.. rotor, df.. x.. twelve, df.. x.. Medium, df.. x.. Highend) all have significant effects on the dependent variable. 
+
+# Performance on Test
+
+```{r}
+df_test[,num_vars]<- predict(preProc, df_test[,num_vars])
+df_test_transformed <- df_test
+df_test_transformed$price <- (df_test_transformed$price ^ lambda - 1) / lambda
+
+predicted <- predict(lm.fit_transformed, newdata = df_test_transformed)
+
+
+rmse <- sqrt(mean((predicted - df_test_transformed$price)^2))
+
+y_mean <- mean(df_test_transformed$price)
+ss_total <- sum((df_test_transformed$price - y_mean)^2)
+ss_residual <- sum((df_test_transformed$price - predicted)^2)
+r_squared <- 1 - (ss_residual / ss_total)
+
+cat("RMSE:", rmse, "\n")
+cat("R-squared:", r_squared, "\n")
+
+```
+
+The test set evaluation provides additional insights into the performance of the regression model. The root mean squared error (RMSE) is a measure of the average magnitude of the residuals in the test set. In this case, the RMSE is 0.178019, indicating that, on average, the predicted values deviate from the actual values by approximately 0.178019 units of the dependent variable. A smaller RMSE suggests better predictive accuracy.
+
+The R-squared value for the test set is 0.8763747. This metric represents the proportion of the variation in the dependent variable that can be explained by the predictor variables in the model. An R-squared of 0.8763747 indicates that approximately 87.64% of the variation in the dependent variable is accounted for by the predictor variables in the test set.
+
+Overall, the model demonstrates a good level of performance on the test set, as evidenced by the relatively small RMSE and high R-squared value. This shows that our model not only has high fitting accuracy, but also has good generalization ability.
+
+# Conclusion
+
+In this analysis, a comprehensive regression modeling process was followed, including extensive data exploration, visualization, feature selection using various methods such as best subset selection, forward and backward stepwise selection, and Cross-Validation. Model diagnostics were performed to assess linearity, residual normality, homoscedasticity, and identify influential points such as high leverage points. Additionally, data preprocessing techniques such as Box-Cox transform and the Cook distance test were employed to address nonlinearity and evaluate influential observations, respectively. The final regression model was analyzed, and its performance was evaluated using test set metrics.
+
+The regression analysis reveals a strong relationship between the selected predictor variables and the dependent variable. Enginesize, horsepower, carwidth, and several categorical variables (df.. x.. rwd, df.. x.. ohcf, df.. x.. ohcv, df.. x.. rotor, df.. x.. twelve, df.. x.. Medium, df.. x.. Highend) significantly influence the value of the dependent variable, indicating their importance in predicting the outcome.
+
+The model's high multiple R-squared value of 0.9101 suggests that approximately 91.01% of the variation in the dependent variable can be explained by the included predictors. This indicates a good fit of the model to the data and highlights the relevance of the chosen variables. The adjusted R-squared value of 0.9025 provides a conservative estimate of the model's explanatory power, considering the number of predictors.
+
+The test set performance, as indicated by the RMSE and R-squared, demonstrated the model's ability to accurately predict the dependent variable in unseen data.
+
+However, further investigation is necessary to validate the model's robustness and generalize the findings. Several directions for future research can be considered:
+
+1. High Leverage Points: It is important to examine the reasons for high leverage points, which are observations that have a significant impact on the regression results due to their extreme values or unique characteristics. Investigating the potential outliers and influential observations can help identify data quality issues, anomalies, or other factors that might influence the model's performance.
+
+1. Additional Predictor Variables: Exploring the inclusion of additional relevant predictor variables that were not considered in the current analysis might enhance the model's explanatory power. It is important to conduct thorough research to identify and incorporate other variables that could have a meaningful impact on the dependent variable.
+
+1. External Validation: Validating the regression model on an independent dataset can assess its predictive performance and generalizability. Collecting new data and applying the model to unseen observations can provide insights into its reliability and applicability in real-world scenarios.
+
+1. Robustness Analysis: It is crucial to evaluate the model's robustness by testing it on different subsets of the data or using alternative modeling techniques. This can help determine if the selected variables and model structure consistently yield reliable results. Robustness analysis provides insights into the model's stability and can enhance its credibility.
+
+In summary, the regression analysis demonstrates the significance of the selected predictor variables in explaining the variation in the dependent variable. However, further investigation into high leverage points, considering additional predictor variables, and conducting external validation is necessary to strengthen the findings and enhance the model's reliability and applicability.
+
+
+
+# References
+
+- Francoeur, R. B. (2013). Could Sequential Residual Centering Resolve Low Sensitivity in Moderated Regression? Simulations and Cancer Symptom Clusters. Open Journal of Statistics, 03(06), 24-44.
+
+- James, G., Witten, D., Hastie, T., and Tibshirani, R. (eds.). (2013). An introduction to statistical learning: with applications in R. New York: Springer.
+
+- Marcoulides, K. M., and Raykov, T. (2019). Evaluation of Variance Inflation Factors in Regression Models Using Latent Variable Modeling Methods. Educational and Psychological Measurement, 79(5), 874–882.
+
+- McElreath, R. (2020). Statistical rethinking: A Bayesian course with examples in R and Stan. 2nd edition. Chapman and Hall/CRC.
+
+- Zuur AF, Ieno EN, Elphick CS. A protocol for data exploration to avoid common statistical problems: Data exploration. Methods in Ecology and Evolution (2010) 1:3–14.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
